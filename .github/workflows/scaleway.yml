@@ -32,7 +32,7 @@ jobs:
         if: steps.check.outputs.skip == 'false'
         uses: docker/login-action@v3
         with:
-          registry: rg.fr-par.scw.cloud
+          registry: ${{ secrets.SCW_REGISTRY_ENDPOINT }}
           username: nologin
           password: ${{ secrets.SCW_SECRET_KEY }}
 
@@ -57,7 +57,19 @@ jobs:
           SCW_REGISTRY_ENDPOINT: ${{ secrets.SCW_REGISTRY_ENDPOINT }}
         run: |
           set -e
-          REGION="${SCW_REGION:-fr-par}"
+          # Derive region from registry host if SCW_REGION not set (pl-waw example from user)
+          if [ -z "$SCW_REGION" ]; then
+            HOST=$(echo "$SCW_REGISTRY_ENDPOINT" | cut -d/ -f1)
+            case "$HOST" in
+              rg.pl-waw.scw.cloud) REGION="pl-waw" ;;
+              rg.nl-ams.scw.cloud) REGION="nl-ams" ;;
+              rg.fr-par.scw.cloud) REGION="fr-par" ;;
+              *) REGION="fr-par" ;;
+            esac
+            echo "SCW_REGION not set, derived REGION=$REGION from $HOST"
+          else
+            REGION="$SCW_REGION"
+          fi
           IMAGE="${SCW_REGISTRY_ENDPOINT}/freebuff-proxy:latest"
           if [ -z "$SCW_CONTAINER_ID" ]; then
             echo "Image pushed to $IMAGE — create container first in console (Deploy a Container), then add SCW_CONTAINER_ID to Secrets for auto-redeploy."
