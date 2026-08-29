@@ -30,7 +30,7 @@ jobs:
 
       - name: Login to Scaleway Container Registry
         if: steps.check.outputs.skip == 'false'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ secrets.SCW_REGISTRY_ENDPOINT }}
           username: nologin
