@@ -1,0 +1,63 @@
+# GoReleaser configuration (v2) — cross-compiled release binaries +
+# checksums.txt. Per-asset SLSA build provenance is attached post-release
+# by .github/workflows/release.yml (actions/attest); no SBOM is produced.
+# Docs: https://goreleaser.com
+version: 2
+
+project_name: freebuff-proxy
+
+builds:
+  - id: freebuff-proxy
+    main: ./cmd/freebuff-proxy
+    binary: freebuff-proxy
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -tags=dashboard
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - src: LICENSE
+        dst: LICENSE
+      - src: .env.example
+        dst: .env.example
+      - src: scripts/gen-token.sh
+        dst: gen-token.sh
+      - src: scripts/gen-token.ps1
+        dst: gen-token.ps1
+      - src: scripts/gen-token.cmd
+        dst: gen-token.cmd
+      - src: scripts/gen-freebuff-token.sh
+        dst: gen-freebuff-token.sh
+      - src: scripts/gen-freebuff-token.ps1
+        dst: gen-freebuff-token.ps1
+      - src: scripts/start-proxy.sh
+        dst: start-proxy.sh
+      - src: scripts/start-proxy.ps1
+        dst: start-proxy.ps1
+      - src: scripts/start-proxy.cmd
+        dst: start-proxy.cmd
+      - src: scripts/README.md
+        dst: README.md
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  draft: false
+  github:
+    owner: trefeon
+    name: freebuff-proxy

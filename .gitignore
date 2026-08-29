@@ -1,0 +1,85 @@
+# ── third-party reference clones (CodebuffAI/freebuff, 9router, etc.) ──
+reference/
+
+# ── local secrets / credentials ──
+.env
+.env.local
+.env.*
+!.env.example
+!.env.full-example
+config.json
+config.*.json
+!config.example.json
+*.pem
+*.key
+
+# ── runtime artifacts ──
+dump/
+*.log
+dist/
+!internal/dashboard/dist/
+out/
+bin/
+tmp/
+.playwright-mcp/
+.ruff_cache/
+
+# ── build outputs (Go binaries) ──
+/freebuff-proxy
+/freebuff-proxy.exe
+/freebuff-proxy-dash.exe
+*.test
+*.out
+coverage.out
+coverage.html
+*.prof
+
+# ── editors / IDEs ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS cruft ──
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ── SDD scratch ──
+.superpowers/
+
+# ── dev tooling & verification (local only, not published) ──
+.codegraph/
+uicheck/
+scripts/token_ref/
+frontend/verify-ui.mjs
+.worktrees/
+
+# ── misc ──
+node_modules/
+*.tmp
+*.bak
+
+# ── agent handoff docs (local only, not repo content) ──
+HANDOFF.md
+*.handoff.md
+plan.md
+PLAN.md
+*.plan.md
+
+# ── dev docs & study (local only, not repo content) ──
+devdocs/
+
+# ── docs/ is public: only top-level .md files are committed ──
+docs/*
+!docs/*.md
+
+# ── proxy session persistence (SHA-256 token keys + instance state) ──
+.freebuff-session-state.json
+.freebuff-session-state.json.*
+*.session-state.json
+
+# local agent tool state (skills.sh installs, session artifacts)
+.agents/
+.claude/
+skills-lock.json

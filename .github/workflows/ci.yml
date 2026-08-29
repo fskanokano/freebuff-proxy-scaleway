@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Format
+        run: test -z "$(gofmt -l cmd internal)"
+
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build (all-in-one)
+        run: go build -tags dashboard ./...
+
+      - name: Test (dashboard embed)
+        # The dashboard go:embed build sits behind the `dashboard` build tag;
+        # plain `go test` never exercises it, so run the tagged suite here
+        # (embedded SPA serving + server integration under the tag).
+        env:
+          AUTH_TOKENS: ""
+          ADMIN_TOKEN: ""
+        run: go test -tags dashboard -timeout 10m ./internal/dashboard/... ./internal/server/...
+
+
+      - name: Test (race detector)
+        env:
+          AUTH_TOKENS: ""
+          ADMIN_TOKEN: ""
+        run: go test -race -timeout 10m ./...
+
+      - name: Verify modules
+        run: go mod verify
+
+  # Reproduce the embedded dashboard bundle from source and fail when the
+  # committed internal/dashboard/dist is stale (the SPA is go:embed'd, so a
+  # stale bundle sails silently into the binary).
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+      - name: Verify committed dashboard bundle is fresh
+        run: git diff --exit-code -- internal/dashboard/dist
