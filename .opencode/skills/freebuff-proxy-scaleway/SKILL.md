@@ -43,12 +43,15 @@ Need env?
 └─ Optional: AUTO_DISCOVER_TOKEN=false, SAFE_MODE, LOG_LEVEL etc unchanged
 ```
 
-### Deploy path?
+### Deploy path?（当前控制台 Image* 必选，先推镜像再建容器）
 
 ```
 Need deploy?
-├─ Console once → Create namespace → Deploy a Container (Scaleway Images, Port 8080, 256MB/140mCPU, min 0 max 5, add 3 secrets) → get URL
-└─ GitHub push → scaleway.yml (login → build linux/amd64 → push rg.fr-par.scw.cloud/<ns>/freebuff-proxy:latest → PATCH + /redeploy) → auto update
+├─ First push (Image* 必选为空则无法提交)
+│  ├─ 本机：docker login → docker build → docker push rg.fr-par.scw.cloud/<ns>/freebuff-proxy:latest
+│  └─ 或 GitHub：先填 SCW_SECRET_KEY+SCW_REGISTRY_ENDPOINT → Actions Run workflow → 镜像出现在下拉
+├─ Then console → Create namespace → Deploy a Container（此时 Image* 可选，选 freebuff-proxy/latest，Port 8080，512MB/500mCPU，min 0 max 3，3 Secrets）→ get URL
+└─ After：GitHub push → scaleway.yml（login → build linux/amd64 → push → PATCH + /redeploy）→ auto update
 ```
 
 ## Key References
@@ -98,8 +101,8 @@ All other 22 internal packages unchanged; proxy still validates `LISTEN_ADDR`, `
 | Source | **Scaleway Images from your Scaleway Container Registry** (first radio, selected) | External is for Docker Hub; Quickstart is hello-world |
 | Registry region* | `AMS` or `PAR` — pick `PAR` (`fr-par`) if your token tier needs EU, or `AMS` (as screenshot). Must match `SCW_REGISTRY_ENDPOINT` region | Your namespace region; `rg.fr-par.scw.cloud` vs `rg.nl-ams.scw.cloud` |
 | Registry namespace* | dropdown → your namespace (e.g. `freebuff`) — create first via **Container Registry → Create namespace** if empty | Namespace holds image `freebuff-proxy` |
-| Image* | `freebuff-proxy` (after first `docker push`) | Built by workflow or `docker push` |
-| Tag* | `latest` (or `main-<sha>`) | Workflow pushes `:latest` |
+| Image* | `freebuff-proxy`（**必先推送，否则必填项为空、表单无法提交**） | `docker push` 或 `Actions Run workflow` 后才出现在下拉 |
+| Tag* | `latest`（或 `main-<sha>`） | Workflow 推送 `:latest`，与 `SCW_REGISTRY_ENDPOINT` 前缀一致 |
 | Port* | `8080` (keep, do not change to 3457) | Must match `Dockerfile ENV PORT=8080` and binary's `$PORT` fallback; Scaleway injects `PORT=8080` and probes it |
 | Container name* | `freebuff-proxy` (or keep generated `container-flamboyant-wilson`) | DNS subdomain; lowercase + dashes |
 | Resources | **CPU 500 mVCPU**, **Memory 512 MB** (NOT 1000/2048 as screenshot default) | 256–512 MB + 140–500 mVCPU enough for Go; 2048/1000 exceeds free tier; 128 MB may OOM with dashboard |

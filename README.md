@@ -56,21 +56,24 @@
 ### 控制台 5 分钟
 
 1. **创建镜像仓库**：Scaleway 控制台 → `Container Registry → Create namespace`，Region 选 `PAR`（`fr-par`），命名 `freebuff`，`Private`。
-2. **部署容器**（即截图 `Deploy a Container`）：
+2. **先推送镜像（否则下一步 `Image*` 必选但为空，无法提交）**——二选一：
+   - **本机推送（最快）**：于本仓库根执行
+     ```bash
+     docker login rg.fr-par.scw.cloud -u nologin --password-stdin <<< "$SCW_SECRET_KEY"
+     docker build -t rg.fr-par.scw.cloud/freebuff/freebuff-proxy:latest .
+     docker push rg.fr-par.scw.cloud/freebuff/freebuff-proxy:latest
+     ```
+   - **用 GitHub 工作流推送**：先在 GitHub `Settings → Secrets → Actions` 填 `SCW_SECRET_KEY` + `SCW_REGISTRY_ENDPOINT=rg.fr-par.scw.cloud/freebuff`（`SCW_CONTAINER_ID` 留空），再 `Actions → Deploy to Scaleway Containers → Run workflow`，待绿勾
+3. **部署容器**（此时截图的 `Image*` 才可选择）：
    - 源选 **Scaleway Images from your Scaleway Container Registry**（第一项）
-   - `Registry region` 选 `PAR`，`Registry namespace` 选 `freebuff`，`Image` 选 `freebuff-proxy` / `Tag` `latest`（首次为空属正常，先推镜像）
+   - `Registry region` 选 `PAR`，`Registry namespace` 选 `freebuff`，`Image` 选 `freebuff-proxy` / `Tag` `latest`
    - `Port` **保持 `8080`**（勿改 3457）
    - `Container name` 填 `freebuff-proxy`
    - `Resources` **改小：CPU 500 mVCPU / Memory 512 MB**（图中 1000/2048 偏大，256MB/140mCPU 亦可）
    - `Autoscaling` → `Request concurrency`：**minimum 0, maximum 3, concurrent 80**（`0` 实现 scale-to-zero，空闲 €0）
    - `Advanced → Secrets → + Add secret` 加上述 **3 行**，`Environment variables` 无需额外变量
    - 点 `Deploy container`，记下 `Container ID` 与 `Endpoint`（如 `https://freebuff-proxy-xxxxx.containers.par.scw.cloud`）
-3. **配置 GitHub 自动部署**：你的 GitHub 仓库 → `Settings → Secrets and variables → Actions` 新建：
-   - `SCW_SECRET_KEY`（IAM → API keys，`ContainerRegistry pull/push` + `Containers manage`）
-   - `SCW_REGISTRY_ENDPOINT` = `rg.fr-par.scw.cloud/freebuff`
-   - `SCW_CONTAINER_ID` = 上一步 `Container ID`
-   - `SCW_REGION` = `fr-par`（与仓库一致）
-   - 此后 `git push origin main` 即自动：`docker login → build linux/amd64 → push → PATCH + /redeploy`（见 `.github/workflows/scaleway.yml:1`）
+4. **补齐 GitHub Secrets 以实现后续推送即重部署**：回 GitHub `Settings → Secrets` 追加 `SCW_CONTAINER_ID`（上一步 UUID）与 `SCW_REGION=fr-par`；此后 `git push origin main` 即自动 `docker login → build linux/amd64 → push → PATCH + /redeploy`（见 `.github/workflows/scaleway.yml:1`）
 
 > **是否免费？是 — 额度内 €0。** Containers 免费额度**按账户每月**：**400,000 GB·s + 200,000 vCPU·s**（内存/算力，临时盘与出入流量免费）；`min_scale=0` 时空闲不计费。个人代理（512MB/500mCPU，3s/次）：月 30k 请求≈45k GB·s → **€0**；100k→€0；300k→约 €0.12。截图右侧 €18 为**未扣免费额度前的估算**，黑浮层提示 “This estimate does not take into account the free tier…” 即此意。
 > - 自查：`Billing → Cost Manager` 筛 `Serverless Containers` 看 `Free Tier` 抵扣；`Billing → Invoices` 当月 `Free Tier` 块；`Billing alerts` 设 €1/€5 告警。

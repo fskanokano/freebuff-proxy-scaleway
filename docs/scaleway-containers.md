@@ -44,7 +44,7 @@
 | **Source** | 顶部三选一 | **Scaleway Images from your Scaleway Container Registry**（已选中第一项为正确） | `External` 用于 Docker Hub，`Quickstart` 是 hello-world |
 | **Registry region*** | `AMS` 下拉 | 建议切 `PAR`（`fr-par` 对应 `rg.fr-par.scw.cloud`）| 要与之后 `SCW_REGISTRY_ENDPOINT` 前缀一致；图中 `AMS`（阿姆斯特丹）亦可，但法区更常用且 workflow 示例用 `fr-par` |
 | **Registry namespace*** | `Registry namespace` 下拉 | 选或新建 `freebuff`（例: `freebuff`）| 先去 **Container Registry → Create namespace** 建 `freebuff`，类型选 `Private`（Scaleway 私有镜像需鉴权，容器可拉取） |
-| **Image*** / **Tag*** | `Image` / `Tag` 下拉 | `freebuff-proxy` / `latest` | 首次推送前下拉为空——先在本地 `docker push rg.fr-par.scw.cloud/freebuff/freebuff-proxy:latest` 或靠 workflow 首次推送后才有 |
+| **Image*** / **Tag*** | `Image` / `Tag` 下拉 | `freebuff-proxy` / `latest` | **必须先推送镜像（见 §4 步骤2），否则此必填项为空、表单无法提交** |
 | **Port*** | 输入框 `8080` | **保持 `8080`，不要改 3457** | 必须与 `Dockerfile ENV PORT=8080` 一致；Scaleway 注入 `PORT=8080` 并以它做 TCP 健康检查；本分支已做 `LISTEN_ADDR`→`$PORT` 回退 |
 | **Enter a name** | `Container name*` | `freebuff-proxy`（或保留自动 `container-flamboyant-wilson`） | 仅小写字母数字+连字符，暴露为子域 `...containers.<region>.scw.cloud` |
 | **Container description/tags** | 可空 | 留空或 `freebuff proxy scaleway` | 不影响计费 |
@@ -66,18 +66,25 @@
 
 ## 4. 分步：从零到可调用（含 workflow 一键更新）
 
-### A. 控制台一次性建容器（5 分钟）
+### A. 控制台一次性建容器（5 分钟，必先推镜像）
 
 1. **建 Container Registry Namespace**：控制台 → Storage → Container Registry → Create namespace；Region 选 `PAR`，Name `freebuff`，Privacy `Private`。
-2. **记下 Push 命令**（namespace 详情页 → Push instructions）：`docker login rg.fr-par.scw.cloud/freebuff -u nologin --password-stdin <<< "$SCW_SECRET_KEY"`，Trust。
-3. **建 Container**（即截图页）：
-   - 按上表填完 3 个 Secrets，点击底部 `Deploy container`（首次无镜像会提示 `image not found`——属预期，下一步 push 后自动拉取）。
-   - 记下 `Container ID`（URL 中 `.../containers/<region>/<uuid>`）和 `Endpoint`（形如 `https://freebuff-proxy-xxxxx.containers.par.scw.cloud`）。
-4. **配置 GitHub Secrets 供 workflow 自动更新**：你的 GitHub 仓库 → `Settings → Secrets and variables → Actions → New repository secret` 依次建：
-   - `SCW_SECRET_KEY` = Scaleway 控制台 `IAM → API keys` 新建的 Secret Key（权限需 `ContainerRegistry: pull/push` + `Containers: manage`，Project 级）
-   - `SCW_REGISTRY_ENDPOINT` = `rg.fr-par.scw.cloud/freebuff`（即 Registry namespace endpoint，不含镜像名）
+2. **先推送镜像（否则下一步的 `Image*` 为空、无法提交）**——二选一：
+   - **本机推送（最快）**：于本仓库根执行（已含 `Dockerfile:23` 的 `ENV PORT=8080`）：
+     ```bash
+     docker login rg.fr-par.scw.cloud -u nologin --password-stdin <<< "$SCW_SECRET_KEY"
+     docker build -t rg.fr-par.scw.cloud/freebuff/freebuff-proxy:latest .
+     docker push rg.fr-par.scw.cloud/freebuff/freebuff-proxy:latest
+     ```
+     亦可 `SCW_SECRET_KEY` 取自控制台 `IAM → API keys`（`ContainerRegistry pull/push` + `Containers manage`）。
+   - **用 GitHub 工作流推送**：先在你的 GitHub `Settings → Secrets → Actions` 填 `SCW_SECRET_KEY` 与 `SCW_REGISTRY_ENDPOINT=rg.fr-par.scw.cloud/freebuff`（`SCW_CONTAINER_ID` 留空），然后 `Actions → Deploy to Scaleway Containers → Run workflow`，待 `Build and push` 绿勾，镜像即出现在控制台下拉。
+3. **建 Container**（即截图 `Deploy a Container` 页，此时 `Image*` 可选）：
+   - 按上表选 `freebuff-proxy`/`latest`，填完 3 个 Secrets，点击 `Deploy container`。
+   - 记下 `Container ID`（URL 中 `.../containers/<region>/<uuid>`）和 `Endpoint`（如 `https://freebuff-proxy-xxxxx.containers.par.scw.cloud`）。
+4. **补齐 GitHub Secrets 供后续自动重部署**：回 GitHub `Settings → Secrets` 追加/更新：
    - `SCW_CONTAINER_ID` = 上一步的容器 UUID
-   - `SCW_REGION` = `fr-par`（或 `nl-ams`，与 namespace 一致；留空工作流默认 `fr-par`）
+   - `SCW_REGION` = `fr-par`（与 namespace 一致；留空默认 `fr-par`）
+   - 已有 `SCW_SECRET_KEY` / `SCW_REGISTRY_ENDPOINT` 无需重建
 5. **验证**：浏览器打开 `https://<your-endpoint>/healthz` → `{"status":"ok",...}`；再：
    ```bash
    curl https://<endpoint>/v1/models -H "Authorization: Bearer <API_KEY>"
